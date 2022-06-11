@@ -58,7 +58,11 @@ export const plugin: PluginFunction<Record<string, any>, Types.ComplexPluginOutp
         }
 
         const lines = []
-        lines.push(`function ${kqlStoreInternal}() {`)
+        lines.push(`const ${kqlStoreInternal}s = {};`)
+
+        lines.push(``)
+
+        lines.push(`function ${kqlStoreInternal}({queryKey = ''}) {`)
         lines.push(`	const operationName = '${kqlStore}';`)
         lines.push(`	const operationType = ResponseResultType.${node.operation === 'query' ? 'Query' : 'Mutation'};`)
         lines.push(``)
@@ -68,6 +72,12 @@ export const plugin: PluginFunction<Record<string, any>, Types.ComplexPluginOutp
             jsDocStyle ? `` : `<RequestResult<${kqltypeQueryAndVariable}>>`
           }({...defaultStoreValue, operationName, operationType});`
         )
+
+        lines.push(``)
+
+        lines.push(`	function getStore() {`)
+        lines.push(`    return queryKey ? ${kqlStoreInternal}s[queryKey] : ${kqlStore};`)
+        lines.push(`  }`)
 
         lines.push(``)
 
@@ -81,6 +91,7 @@ export const plugin: PluginFunction<Record<string, any>, Types.ComplexPluginOutp
           lines.push(`			let { cacheMs, policy } = settings ?? {};`)
         }
         lines.push(``)
+        lines.push(`			const store = getStore();`)
         lines.push(`			const storedVariables = get(${kqlStore}).variables;`)
         lines.push(`			variables = variables ?? storedVariables;`)
         if (node.operation === 'query') {
@@ -135,6 +146,14 @@ export const plugin: PluginFunction<Record<string, any>, Types.ComplexPluginOutp
         lines.push(`			set(result);`)
         lines.push(`			return result;`)
         lines.push(`		}`)
+        lines.push(``)
+
+        if (node.operation === 'query') {
+          lines.push(`function forKey(key) {`)
+          lines.push(`  KQL_QueryNameStores[key] ??= KQL_QueryNameStore(key);`)
+          lines.push(`  return KQL_QueryNameStores[key];`)
+          lines.push(`}`)
+        }
 
         lines.push(``)
         lines.push(`	return {`)
@@ -200,11 +219,11 @@ export const plugin: PluginFunction<Record<string, any>, Types.ComplexPluginOutp
           )
           lines.push(`			}`)
           lines.push(`			if(type === 'store-only' ) {`)
-          lines.push(`				let toReturn = { ...get(${kqlStore}), data, variables } ;`)
+          lines.push(`				let toReturn = { ...get(getStore()), data, variables } ;`)
           lines.push(`				set(toReturn);`)
           lines.push(`			}`)
           lines.push(`			if(type === 'cache-and-store' ) {`)
-          lines.push(`				set({...get(${kqlStore}), ...updatedCacheStore});`)
+          lines.push(`				set({...get(getStore()), ...updatedCacheStore});`)
           lines.push(`			}`)
           lines.push(`			kitQLClient.logInfo(operationName, "patch", type);`)
           lines.push(`		}`)
